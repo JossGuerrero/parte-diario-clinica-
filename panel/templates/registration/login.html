@@ -1,0 +1,23 @@
+{% extends 'auth_base.html' %}
+
+{% block content %}
+  <h3 class="text-center">Iniciar sesión</h3>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-group">
+      <label for="id_username">Usuario</label>
+      {{ form.username }}
+    </div>
+    <div class="form-group">
+      <label for="id_password">Contraseña</label>
+      {{ form.password }}
+    </div>
+
+    <button class="btn btn-primary btn-block" type="submit">Entrar</button>
+    <p class="text-muted small text-center" style="margin-top:10px;">Solo superusuarios pueden iniciar sesión aquí.</p>
+  </form>
+{% endblock %}

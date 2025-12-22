@@ -1,0 +1,26 @@
+{% extends 'index_master.html' %}
+
+{% block content %}
+<div class="right_col" role="main">
+  <div class="page-title">
+    <div class="title_left">
+      <h3>{% if form.instance.pk %}Editar usuario{% else %}Crear usuario{% endif %}</h3>
+    </div>
+  </div>
+  <div class="clearfix"></div>
+  <div class="row">
+    <div class="col-md-6">
+      <div class="x_panel">
+        <div class="x_content">
+          <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button class="btn btn-primary" type="submit">Guardar</button>
+            <a class="btn btn-default" href="{% url 'panel:users_list' %}">Cancelar</a>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

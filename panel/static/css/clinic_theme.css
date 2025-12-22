@@ -1,0 +1,59 @@
+/* Clinic theme overrides - morado y celeste */
+:root {
+  --clinic-primary: #6a0dad; /* morado */
+  --clinic-accent: #00bfff; /* celeste */
+  --clinic-dark: #4b0077;
+}
+
+/* Ensure it overrides previous styles */
+.site_title { color: var(--clinic-primary) !important; }
+.site_title .fa { color: var(--clinic-accent) !important; }
+
+.badge.bg-green, .bg-green { background-color: var(--clinic-primary) !important; border-color: var(--clinic-primary) !important; color: #fff !important; }
+.progress-bar.bg-green { background-color: var(--clinic-primary) !important; }
+
+.badge.bg-red, .bg-red { background-color: var(--clinic-accent) !important; border-color: var(--clinic-accent) !important; color: #fff !important; }
+
+.btn-primary, .label-primary { background-color: var(--clinic-primary) !important; border-color: var(--clinic-dark) !important; color: #fff !important; }
+.btn-primary:hover { background-color: var(--clinic-dark) !important; border-color: var(--clinic-dark) !important; }
+
+.progress .progress-bar { background-color: var(--clinic-primary) !important; }
+.tile_stats_count .count_top i, .tile_stats_count .count_bottom { color: var(--clinic-accent) !important; }
+
+/* Additional helpful utilities */
+.bg-clinic-primary { background-color: var(--clinic-primary) !important; color: #fff !important; }
+.text-clinic-primary { color: var(--clinic-primary) !important; }
+
+/* Logo sizing - aumentar */
+.site_logo { height: 48px; vertical-align: middle; margin-right: 10px; }
+
+/* Sidebar: poner fondo negro y ajustar acentos */
+.left_col { background: #000 !important; }
+.nav.side-menu>li.current-page, .nav.side-menu>li.active { border-right: 5px solid var(--clinic-accent) !important; }
+.nav.side-menu>li.active>a, .nav.side-menu>li.current-page>a { background: linear-gradient(#070707, #000) !important; box-shadow: none !important; }
+
+/* Mobile collapsed sidebar active color */
+.nav-sm .nav.child_menu li.active, .nav-sm .nav.side-menu li.active-sm { border-right: 5px solid var(--clinic-accent) !important; }
+.nav-sm > .nav.side-menu > li.active-sm > a { color: var(--clinic-accent) !important; }
+
+/* Reemplazar texto verde */
+.green, .count.green { color: var(--clinic-primary) !important; }
+
+/* For any remaining specific green hex accents (override common ones) */
+.nav.side-menu>li.current-page, .nav.side-menu>li.active, .badge.bg-green, .bg-green { border-color: var(--clinic-accent) !important; }
+
+/* Top navigation icons */
+.top_nav .navbar-right li a i { color: var(--clinic-accent) !important; }
+.top_nav .navbar-right li .user-profile img { border-color: var(--clinic-accent) !important; }
+
+/* Make big numbers use primary */
+.tile_stats_count .count { color: var(--clinic-primary) !important; }
+
+/* Sidebar menu icons */
+.nav.side-menu>li>a i { color: var(--clinic-accent) !important; }
+
+/* Buttons / small icons */
+.panel_toolbox>li>a, .nav.side-menu>li>a .fa { color: var(--clinic-accent) !important; }
+
+
+

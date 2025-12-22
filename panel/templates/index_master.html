@@ -1,0 +1,238 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <!-- Meta, title, CSS, favicons, etc. -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="icon" href="images/favicon.ico" type="image/ico" />
+
+    <title>Panel Clínico</title>
+
+    <!-- Bootstrap -->
+    <link href="{% static '/FrWork/admin_lte/vendors/bootstrap/dist/css/bootstrap.min.css' %}" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="{% static '/FrWork/admin_lte/vendors/font-awesome/css/font-awesome.min.css' %}" rel="stylesheet">
+    <!-- NProgress -->
+    <link href="{% static '/FrWork/admin_lte/vendors/nprogress/nprogress.css' %}" rel="stylesheet">
+    <!-- iCheck -->
+    <link href="{% static '/FrWork/admin_lte/vendors/iCheck/skins/flat/green.css' %}" rel="stylesheet">
+	
+    <!-- bootstrap-progressbar -->
+    <link href="{% static '/FrWork/admin_lte/vendors/bootstrap-progressbar/css/bootstrap-progressbar-3.3.4.min.css' %}" rel="stylesheet">
+    <!-- JQVMap -->
+    <link href="{% static '/FrWork/admin_lte/vendors/jqvmap/dist/jqvmap.min.css' %}" rel="stylesheet"/>
+    <!-- bootstrap-daterangepicker -->
+    <link href="{% static '/FrWork/admin_lte/vendors/bootstrap-daterangepicker/daterangepicker.css' %}" rel="stylesheet">
+
+    <!-- Custom Theme Style -->
+    <link href="{% static '/FrWork/admin_lte/build/css/custom.min.css' %}" rel="stylesheet">
+    <!-- Clinic overrides (morado / celeste) -->
+    <link href="{% static 'css/clinic_theme.css' %}?v=1" rel="stylesheet">
+  </head>
+
+  <body class="nav-md">
+    <div class="container body">
+      <div class="main_container">
+        <div class="col-md-3 left_col">
+          <div class="left_col scroll-view">
+            <div class="navbar nav_title" style="border: 0;">
+              <a href="{% url 'panel:index' %}" class="site_title">
+                <img src="{% static 'images/images-Photoroom.png'  %}" alt="Clínica" class="site_logo"> <span>Clínica</span>
+              </a>
+            </div>
+
+            <div class="clearfix"></div>
+
+            <!-- info perfil -->
+            <div class="profile clearfix">
+              <div class="profile_pic">
+                <img src="{% static 'images/img.jpg' %}" alt="avatar" class="img-circle profile_img">
+              </div>
+              <div class="profile_info">
+                <span>Bienvenido,</span>
+                <h2>{{ user.get_full_name|default:"Usuario" }}</h2>
+              </div>
+            </div>
+            <!-- /info perfil -->
+
+            <br />
+
+            <!-- menú lateral -->
+            <div id="sidebar-menu" class="main_menu_side hidden-print main_menu">
+              <div class="menu_section">
+                <h3>General</h3>
+                <ul class="nav side-menu">
+                  <li><a><i class="fa fa-home"></i> Inicio <span class="fa fa-chevron-down"></span></a>
+                    <ul class="nav child_menu">
+                      <li><a href="{% url 'panel:index' %}">Tablero</a></li>
+                      <li><a href="#">Tablero 2</a></li>
+                      <li><a href="#">Tablero 3</a></li>
+                    </ul>
+                  </li>
+                  <li><a><i class="fa fa-edit"></i> Formularios <span class="fa fa-chevron-down"></span></a>
+                    <ul class="nav child_menu">
+                      <li><a href="#">Formulario general</a></li>
+                      <li><a href="#">Componentes avanzados</a></li>
+                      <li><a href="#">Validación</a></li>
+                    </ul>
+                  </li>
+                  <li><a href="{% url 'panel:users_list' %}"><i class="fa fa-users"></i> Usuarios</a></li>
+                  <li><a><i class="fa fa-table"></i> Tablas <span class="fa fa-chevron-down"></span></a>
+                    <ul class="nav child_menu">
+                      <li><a href="#">Tablas</a></li>
+                      <li><a href="#">Tabla dinámica</a></li>
+                    </ul>
+                  </li>
+                  <li><a><i class="fa fa-bar-chart-o"></i> Gráficos <span class="fa fa-chevron-down"></span></a>
+                    <ul class="nav child_menu">
+                      <li><a href="#">Chart JS</a></li>
+                      <li><a href="#">ECharts</a></li>
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <!-- /menú lateral -->
+
+            <!-- /botones pie del menú -->
+            <div class="sidebar-footer hidden-small">
+              <a data-toggle="tooltip" data-placement="top" title="Ajustes">
+                <span class="glyphicon glyphicon-cog" aria-hidden="true"></span>
+              </a>
+              <a data-toggle="tooltip" data-placement="top" title="Pantalla completa">
+                <span class="glyphicon glyphicon-fullscreen" aria-hidden="true"></span>
+              </a>
+              <a data-toggle="tooltip" data-placement="top" title="Bloquear">
+                <span class="glyphicon glyphicon-eye-close" aria-hidden="true"></span>
+              </a>
+              <a data-toggle="tooltip" data-placement="top" title="Cerrar sesión" href="{% url 'logout' %}">
+                <span class="glyphicon glyphicon-off" aria-hidden="true"></span>
+              </a>
+            </div>
+            <!-- /botones pie del menú -->
+          </div>
+        </div>
+
+        <!-- navegación superior -->
+        <div class="top_nav">
+          <div class="nav_menu">
+              <div class="nav toggle">
+                <a id="menu_toggle"><i class="fa fa-bars"></i></a>
+              </div>
+              <nav class="nav navbar-nav">
+              <ul class=" navbar-right">
+                <li class="nav-item dropdown open" style="padding-left: 15px;">
+                  <a href="javascript:;" class="user-profile dropdown-toggle" aria-haspopup="true" id="navbarDropdown" data-toggle="dropdown" aria-expanded="false">
+                    <img src="{% static 'images/img.jpg' %}" alt="avatar">{{ user.get_short_name|default:"Usuario" }}
+                  </a>
+                  <div class="dropdown-menu dropdown-usermenu pull-right" aria-labelledby="navbarDropdown">
+                    <a class="dropdown-item"  href="javascript:;"> Perfil</a>
+                      <a class="dropdown-item"  href="javascript:;">
+                        <span class="badge bg-red pull-right">50%</span>
+                        <span>Ajustes</span>
+                      </a>
+                  <a class="dropdown-item"  href="javascript:;">Ayuda</a>
+                    <a class="dropdown-item"  href="{% url 'logout' %}"><i class="fa fa-sign-out pull-right"></i> Cerrar sesión</a>
+                  </div>
+                </li>
+
+                <li role="presentation" class="nav-item dropdown open">
+                  <a href="javascript:;" class="dropdown-toggle info-number" id="navbarDropdown1" data-toggle="dropdown" aria-expanded="false">
+                    <i class="fa fa-envelope-o"></i>
+                    <span class="badge bg-green">6</span>
+                  </a>
+                  <ul class="dropdown-menu list-unstyled msg_list" role="menu" aria-labelledby="navbarDropdown1">
+                    <li class="nav-item">
+                      <a class="dropdown-item">
+                        <span class="image"><img src="{% static 'images/img.jpg' %}" alt="Perfil" /></span>
+                        <span>
+                          <span>John Smith</span>
+                          <span class="time">hace 3 min</span>
+                        </span>
+                        <span class="message">
+                          Mensaje de ejemplo...
+                        </span>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <div class="text-center">
+                        <a class="dropdown-item">
+                          <strong>Ver todas las alertas</strong>
+                          <i class="fa fa-angle-right"></i>
+                        </a>
+                      </div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+        <!-- /navegación superior -->
+
+        <!-- sección principal -->
+        {% block content %}
+        {% endblock %}
+        <!-- /sección principal -->
+
+        <!-- pie de página -->
+        <footer>
+          <div class="pull-right">
+            Panel Clínico — Proyecto prototipo
+          </div>
+          <div class="clearfix"></div>
+        </footer>
+        <!-- /pie de página -->
+      </div>
+    </div>
+
+    <!-- jQuery -->
+    <script src="{% static '/FrWork/admin_lte/vendors/jquery/dist/jquery.min.js' %}"></script>
+    <!-- Bootstrap -->
+    <script src="{% static '/FrWork/admin_lte/vendors/bootstrap/dist/js/bootstrap.bundle.min.js' %}"></script>
+    <!-- FastClick -->
+    <script src="{% static '/FrWork/admin_lte/vendors/fastclick/lib/fastclick.js' %}"></script>
+    <!-- NProgress -->
+    <script src="{% static '/FrWork/admin_lte/vendors/nprogress/nprogress.js' %}"></script>
+    <!-- Chart.js -->
+    <script src="{% static '/FrWork/admin_lte/vendors/Chart.js/dist/Chart.min.js' %}"></script>
+    <!-- gauge.js -->
+    <script src="{% static '/FrWork/admin_lte/vendors/gauge.js/dist/gauge.min.js' %}"></script>
+    <!-- Services data for charts (injected per-template) -->
+    <script>
+      window.servicesData = {{ servicios_top|safe|default:'[]' }};
+    </script>
+    <!-- bootstrap-progressbar -->
+    <script src="{% static '/FrWork/admin_lte/vendors/bootstrap-progressbar/bootstrap-progressbar.min.js' %}"></script>
+    <!-- iCheck -->
+    <script src="{% static '/FrWork/admin_lte/vendors/iCheck/icheck.min.js' %}"></script>
+    <!-- Skycons -->
+    <script src="{% static '/FrWork/admin_lte/vendors/skycons/skycons.js' %}"></script>
+    <!-- Flot -->
+    <script src="{% static '/FrWork/admin_lte/vendors/Flot/jquery.flot.js' %}"></script>
+    <script src="{% static '/FrWork/admin_lte/vendors/Flot/jquery.flot.pie.js' %}"></script>
+    <script src="{% static '/FrWork/admin_lte/vendors/Flot/jquery.flot.time.js' %}"></script>
+    <script src="{% static '/FrWork/admin_lte/vendors/Flot/jquery.flot.stack.js' %}"></script>
+    <script src="{% static '/FrWork/admin_lte/vendors/Flot/jquery.flot.resize.js' %}"></script>
+    <!-- Flot plugins -->
+    <script src="{% static '/FrWork/admin_lte/vendors/flot.orderbars/js/jquery.flot.orderBars.js' %}"></script>
+    <script src="{% static '/FrWork/admin_lte/vendors/flot-spline/js/jquery.flot.spline.min.js' %}"></script>
+    <script src="{% static '/FrWork/admin_lte/vendors/flot.curvedlines/curvedLines.js' %}"></script>
+    <!-- DateJS -->
+    <script src="{% static '/FrWork/admin_lte/vendors/DateJS/build/date.js' %}"></script>
+    <!-- JQVMap -->
+    <script src="{% static '/FrWork/admin_lte/vendors/jqvmap/dist/jquery.vmap.js' %}"></script>
+    <script src="{% static '/FrWork/admin_lte/vendors/jqvmap/dist/maps/jquery.vmap.world.js' %}"></script>
+    <script src="{% static '/FrWork/admin_lte/vendors/jqvmap/examples/js/jquery.vmap.sampledata.js' %}"></script>
+    <!-- bootstrap-daterangepicker -->
+    <script src="{% static '/FrWork/admin_lte/vendors/moment/min/moment.min.js' %}"></script>
+    <script src="{% static '/FrWork/admin_lte/vendors/bootstrap-daterangepicker/daterangepicker.js' %}"></script>
+
+    <!-- Custom Theme Scripts -->
+    <script src="{% static '/FrWork/admin_lte/build/js/custom.min.js' %}"></script>
+	
+  </body>
+</html>
