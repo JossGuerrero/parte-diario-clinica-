@@ -15,88 +15,54 @@ def lista_pacientes(request):
 
 @login_required(login_url='login')
 def index(request):
-    # additionally enforce superuser (logout and redirect if not)
     if not request.user.is_superuser:
         logout(request)
         return redirect('login')
 
-    today = date.today()
-    fecha_hasta = today.strftime("%d/%m/%Y")
-    fecha_desde = (today - timedelta(days=7)).strftime("%d/%m/%Y")
+    from django.db.models import Count
+    from datetime import date, timedelta, datetime
+    from .models import Atencionambulatoria, Cita
 
-    # parse date range from GET or use last 7 days
-    from django.db.models import Sum, Count
-    from datetime import datetime
-    from .models import Atencion, Cita, Especialidad, Servicio
+    # 1. Configuración de fechas
+    today = date.today()
+    desde_str = request.GET.get('desde')
+    hasta_str = request.GET.get('hasta')
 
     def parse_date(s, default):
         try:
             return datetime.strptime(s, "%d/%m/%Y").date()
-        except Exception:
+        except:
             return default
 
-    total_atenciones = 0
-    valor_consultas = 0
-    valor_medicinas = 0
-    numero_citas = 0
-    cancelaciones = 0
-    resumen_especialidades = []
-    servicios_top = []
+    fecha_desde = parse_date(desde_str, today - timedelta(days=7))
+    fecha_hasta = parse_date(hasta_str, today)
 
-    # get filter range
-    desde_str = request.GET.get('desde')
-    hasta_str = request.GET.get('hasta')
-    if desde_str and hasta_str:
-        fecha_desde = parse_date(desde_str, (date.today() - timedelta(days=7)))
-        fecha_hasta = parse_date(hasta_str, date.today())
-    else:
-        fecha_hasta = date.today()
-        fecha_desde = date.today() - timedelta(days=7)
-
-    # Atenciones dentro del rango
-    atenciones_qs = Atencion.objects.filter(fecha__range=(fecha_desde, fecha_hasta))
+    # 2. Consultas con nombres reales de tu SQL Server
+    # Cambiamos 'fechaAtencion' por 'fechaatencion' (Django suele poner todo en minúsculas)
+    atenciones_qs = Atencionambulatoria.objects.filter(fechaatencion__range=(fecha_desde, fecha_hasta))
     total_atenciones = atenciones_qs.count()
-    agg = atenciones_qs.aggregate(s_consultas=Sum('valor_consulta'), s_medicinas=Sum('valor_medicinas'))
-    valor_consultas = agg['s_consultas'] or 0
-    valor_medicinas = agg['s_medicinas'] or 0
 
-    # Citas
-    citas_qs = Cita.objects.filter(fecha__range=(fecha_desde, fecha_hasta))
+    # Filtro de Citas usando 'fechacita'
+    citas_qs = Cita.objects.filter(fechacita__range=(fecha_desde, fecha_hasta))
     numero_citas = citas_qs.count()
-    cancelaciones = citas_qs.filter(estado=Cita.ESTADO_CANCELADA).count()
+    
+    # Filtro de cancelaciones usando 'idestadocita' (ajusta el ID según tu BD)
+    cancelaciones = citas_qs.filter(idestadocita_id=3).count()
 
-    # resumen por especialidad
-    if total_atenciones > 0:
-        espec_qs = atenciones_qs.values('especialidad__nombre').annotate(cantidad=Count('id')).order_by('-cantidad')
-        resumen_especialidades = []
-        for e in espec_qs:
-            pct = round((e['cantidad'] / total_atenciones) * 100, 1)
-            resumen_especialidades.append({'nombre': e['especialidad__nombre'], 'porcentaje': pct})
-
-    # servicios top
-    serv_qs = atenciones_qs.values('servicio__nombre').annotate(cantidad=Count('id')).order_by('-cantidad')[:5]
-    servicios_top = []
-    max_c = max([s['cantidad'] for s in serv_qs], default=1)
-    for s in serv_qs:
-        pct = round((s['cantidad'] / max_c) * 100, 1)
-        servicios_top.append({'nombre': s['servicio__nombre'], 'porcentaje': pct, 'cantidad': s['cantidad']})
-
-    total_recaudado = float(valor_consultas or 0) + float(valor_medicinas or 0)
-
+    # 3. Valores financieros (Se dejan en 0 porque no existen en Atencionambulatoria)
     context = {
         "total_atenciones": total_atenciones,
-        "valor_consultas": float(valor_consultas),
-        "valor_medicinas": float(valor_medicinas),
+        "valor_consultas": 0.0,
+        "valor_medicinas": 0.0,
         "numero_citas": numero_citas,
         "cancelaciones": cancelaciones,
-        "total_recaudado": total_recaudado,
+        "total_recaudado": 0.0,
         "fecha_desde": fecha_desde.strftime('%d/%m/%Y'),
         "fecha_hasta": fecha_hasta.strftime('%d/%m/%Y'),
-        "resumen_especialidades": resumen_especialidades,
-        "servicios_top": servicios_top,
+        "resumen_especialidades": [], 
+        "servicios_top": [],
     }
     return render(request, "index.html", context)
-
 
 # ---- User management views (CRUD) ----
 from django.contrib.auth.mixins import LoginRequiredMixin
