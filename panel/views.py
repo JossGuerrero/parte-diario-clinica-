@@ -3,6 +3,16 @@ from datetime import date, timedelta
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 
+from django.shortcuts import render
+from .models import Paciente  # Importamos tu modelo de SQL Server
+
+def lista_pacientes(request):
+    # Traemos todos los registros de la tabla 'paciente' de HHSCJEC_prueba
+    pacientes = Paciente.objects.all() 
+    
+    # Enviamos los datos al archivo HTML (que crearemos en el siguiente paso)
+    return render(request, 'panel/pacientes_list.html', {'pacientes': pacientes})
+
 @login_required(login_url='login')
 def index(request):
     # additionally enforce superuser (logout and redirect if not)
