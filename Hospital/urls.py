@@ -1,9 +1,19 @@
 from django.contrib import admin
 from django.urls import path, include
-from django.contrib.auth.views import LogoutView, LoginView
+from django.contrib.auth.views import LoginView
 from django.urls import reverse_lazy
+from django.shortcuts import redirect
 # use custom auth form that only allows superusers
 from panel.forms import SuperuserAuthenticationForm
+# use our small logout view that accepts GET so the sidebar link works
+from panel.views import logout_view
+
+from django.conf import settings
+from django.conf.urls.static import static
+
+# Root should show the login page so the app 'empiece' por autenticación
+def root_redirect(request):
+    return redirect('login')
 
 urlpatterns = [
     # 1. Administración de Django
@@ -18,7 +28,15 @@ urlpatterns = [
         ),
         name="login",
     ),
-    path("logout/", LogoutView.as_view(next_page=reverse_lazy('login')), name="logout"),
+    path("logout/", logout_view, name="logout"),
 
-    path("", include(("panel.urls", "panel"), namespace="panel")),
+    # Root -> login
+    path("", root_redirect, name="home"),
+
+    # Mover el panel bajo /panel/ para evitar ambigüedades con la ruta raíz
+    path("panel/", include(("panel.urls", "panel"), namespace="panel")),
 ]
+
+# Servir archivos media en DEBUG para desarrollo local
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

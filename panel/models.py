@@ -398,6 +398,25 @@ class Ordenatencion(models.Model):
 
     class Meta:
         managed = False
+
+
+# --- Queries saved for Access execution ---
+from django.conf import settings
+from django.contrib.auth import get_user_model
+
+class AccessQuery(models.Model):
+    """Simple model to store named SELECT queries that can be executed against the Access file."""
+    name = models.CharField(max_length=150)
+    sql = models.TextField()
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Consulta Access'
+        verbose_name_plural = 'Consultas Access'
+
+    def __str__(self):
+        return f"{self.name}"
         db_table = 'ordenAtencion'
 
 
@@ -520,14 +539,29 @@ class Pacientefacturacion(models.Model):
 class PanelAtencion(models.Model):
     id = models.BigAutoField(primary_key=True)
     fecha = models.DateField()
-    valor_consulta = models.DecimalField(max_digits=10, decimal_places=2)
-    valor_medicinas = models.DecimalField(max_digits=10, decimal_places=2)
-    especialidad = models.ForeignKey('PanelEspecialidad', models.DO_NOTHING)
-    servicio = models.ForeignKey('PanelServicio', models.DO_NOTHING)
+    valor_consulta = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    valor_medicinas = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    especialidad = models.ForeignKey('PanelEspecialidad', models.CASCADE, blank=True, null=True)
+    servicio = models.ForeignKey('PanelServicio', models.CASCADE, blank=True, null=True)
+
+    # Tracking / source fields for idempotent automated imports
+    source_table = models.CharField(max_length=100, blank=True, null=True, help_text='Tabla origen en Access')
+    source_hash = models.CharField(max_length=64, blank=True, null=True, db_index=True, help_text='Hash único de la fila origen para evitar duplicados')
+    raw = models.JSONField(blank=True, null=True, help_text='Contenido crudo de la fila importada')
+
+    # Optional attributes for richer reporting
+    institucion = models.CharField(max_length=120, blank=True, null=True)
+    genero = models.CharField(max_length=10, blank=True, null=True)
+    edad = models.IntegerField(blank=True, null=True)
+    solicitado_a = models.CharField(max_length=120, blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'panel_atencion'
+        verbose_name = 'Atención (panel)'
+        constraints = [
+            models.UniqueConstraint(fields=['source_table', 'source_hash'], name='uniq_source_row', condition=~models.Q(source_table=None) & ~models.Q(source_hash=None))
+        ]
 
 
 class PanelCita(models.Model):
@@ -545,8 +579,9 @@ class PanelEspecialidad(models.Model):
     nombre = models.CharField(max_length=120)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'panel_especialidad'
+        verbose_name = 'Especialidad (panel)'
 
 
 class PanelServicio(models.Model):
@@ -554,8 +589,9 @@ class PanelServicio(models.Model):
     nombre = models.CharField(max_length=120)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'panel_servicio'
+        verbose_name = 'Servicio (panel)'
 
 
 class Profesional(models.Model):

@@ -135,6 +135,10 @@
                         <span>Ajustes</span>
                       </a>
                   <a class="dropdown-item"  href="javascript:;">Ayuda</a>
+                  {% if user.is_superuser %}
+                    <a class="dropdown-item" href="{% url 'panel:import_access' %}"><i class="fa fa-database pull-right"></i> Importar Access</a>
+                    <a class="dropdown-item" href="{% url 'panel:report' %}"><i class="fa fa-file-text pull-right"></i> Documentación</a>
+                  {% endif %}
                     <a class="dropdown-item"  href="{% url 'logout' %}"><i class="fa fa-sign-out pull-right"></i> Cerrar sesión</a>
                   </div>
                 </li>

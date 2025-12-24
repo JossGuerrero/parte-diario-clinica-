@@ -1,0 +1,104 @@
+{% extends 'index_master.html' %}
+
+{% block content %}
+<div class="right_col" role="main">
+  <h2>Importar desde Microsoft Access</h2>
+  {% if pyodbc_missing %}
+    <div class="alert alert-danger">La librería <code>pyodbc</code> no está instalada: {{ pyodbc_error }}</div>
+    <p>Instala con: <code>pip install pyodbc</code> y asegúrate de tener el driver ACE instalado (Microsoft Access Database Engine).</p>
+  {% endif %}
+
+  {% if tables %}
+    <div class="card">
+      <div class="card-body">
+        <h4>Tablas encontradas en {{ file_name }}</h4>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="import">
+          <div class="form-group">
+            <label for="table">Seleccione tabla:</label>
+            <select name="table" class="form-control">
+              {% for t in tables %}
+                <option value="{{ t }}">{{ t }}</option>
+              {% endfor %}
+              {% if 'Eqctacli' not in tables %}
+                <option value="Eqctacli">Eqctacli</option>
+              {% endif %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="access_password">Contraseña del archivo</label>
+            <input class="form-control" type="password" name="access_password" value="" />
+            <small class="form-text text-muted">Si la contraseña fue guardada en la sesión, puedes dejar esto vacío.</small>
+          </div>
+          <button class="btn btn-primary">Importar tabla seleccionada</button>
+        </form>
+      </div>
+    </div>
+  {% else %}
+    <div class="card">
+      <div class="card-body">
+        <form id="inspect-form" method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="inspect">
+
+          {% if persisted_info %}
+            <div class="alert alert-info">
+              <strong>Archivo persistente detectado:</strong> {{ persisted_info.original_name }}
+              <div class="mt-2">
+                <button name="use_existing" value="1" class="btn btn-secondary">Listar tablas del archivo guardado</button>
+                <form method="post" action="{% url 'panel:run_import_access' %}" class="d-inline-block ml-2">
+                  {% csrf_token %}
+                  <input type="password" name="access_password" placeholder="Contraseña (opcional)" class="form-control d-inline-block" style="width:260px; display:inline-block;" />
+                  <button class="btn btn-primary ml-1">Ejecutar importación (persistente)</button>
+                </form>
+                <span class="text-muted ml-2">(sobrescribir con uno nuevo si subes otro archivo)</span>
+              </div>
+            </div>
+          {% endif %}
+
+          <div class="form-group">
+            <label for="access_file">Arrastra o selecciona el archivo Access (.mdb / .accdb)</label>
+            <input id="access_file_input" type="file" class="form-control" name="access_file" accept=".mdb,.accdb" />
+            <div id="drop-area" class="border p-3 mt-2 text-center" style="cursor: pointer;">
+              Arrastra el archivo aquí o haz clic para seleccionar
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="access_password">Contraseña del archivo</label>
+            <input class="form-control" type="password" name="access_password" />
+          </div>
+
+          <div class="form-group form-check">
+            <input type="checkbox" class="form-check-input" id="persist" name="persist" value="1" />
+            <label class="form-check-label" for="persist">Guardar archivo en el servidor (sobrescribe el archivo actual)</label>
+          </div>
+
+          <div class="form-group form-check">
+            <input type="checkbox" class="form-check-input" id="remember_pwd" name="remember_pwd" value="1" checked />
+            <label class="form-check-label" for="remember_pwd">Recordar la contraseña en esta sesión</label>
+          </div>
+
+          <button class="btn btn-primary">Conectar y listar tablas</button>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+
+  <p class="text-muted mt-3">Nota: si eliges guardar el archivo en el servidor, se sobrescribirá el anterior; si eliges recordar la contraseña, esta se guardará de forma firmada en la sesión y se usará automáticamente mientras dure la sesión.</p>
+</div>
+
+<script>
+// small client-side script for drag & drop UX
+(function(){
+  var drop = document.getElementById('drop-area');
+  var input = document.getElementById('access_file_input');
+  if(!drop || !input) return;
+  drop.addEventListener('click', function(){ input.click(); });
+  drop.addEventListener('dragover', function(e){ e.preventDefault(); drop.classList.add('bg-light'); });
+  drop.addEventListener('dragleave', function(e){ drop.classList.remove('bg-light'); });
+  drop.addEventListener('drop', function(e){ e.preventDefault(); drop.classList.remove('bg-light'); if(e.dataTransfer.files && e.dataTransfer.files.length){ input.files = e.dataTransfer.files; } });
+})();
+</script>
+{% endblock %}

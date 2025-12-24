@@ -4,6 +4,22 @@
 
     <!-- contenido de la página -->
         <div class="right_col" role="main">
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-warning" role="alert">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+
+          <!-- Acciones rápidas (superusuario) -->
+          {% if user.is_superuser %}
+          <div class="row mb-3">
+            <div class="col-12 text-right">
+              <a class="btn btn-outline-primary btn-sm" href="{% url 'panel:import_access' %}">Importar Access</a>
+              <a class="btn btn-outline-secondary btn-sm" href="{% url 'panel:report' %}">Ver documentación</a>
+            </div>
+          </div>
+          {% endif %}
+
           <!-- indicadores superiores -->
           <div class="row" style="display: inline-block;" >
           <div class="tile_count">
