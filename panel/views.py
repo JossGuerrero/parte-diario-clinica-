@@ -232,6 +232,9 @@ def dashboard_export_csv(request):
     except Exception:
         return HttpResponse('Fecha inválida', status=400)
 
+    # Prefer summary table when present (same logic as API)
+    from .models import DailyEqctacliSummary
+
     qs = PanelAtencion.objects.all()
     if d_from and d_to:
         qs = qs.filter(fecha__range=(d_from, d_to))
@@ -240,28 +243,38 @@ def dashboard_export_csv(request):
     if institucion:
         qs = qs.filter(institucion__iexact=institucion)
 
-    bydate = (
-        qs.values('fecha')
-        .annotate(
-            atenciones=Count('id'),
-            total_consulta=Sum('valor_consulta'),
-            total_medicina=Sum('valor_medicinas'),
-        )
-        .order_by('fecha')
-    )
+    use_summaries = False
+    if d_from and d_to:
+        qs_sum = DailyEqctacliSummary.objects.filter(date__range=(d_from, d_to))
+        if qs_sum.exists() and not medico and not institucion:
+            use_summaries = True
 
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="dashboard_export.csv"'
 
     writer = csv.writer(response)
     writer.writerow(['periodo', 'atenciones', 'total_consulta', 'total_medicina'])
-    for b in bydate:
-        writer.writerow([
-            b['fecha'].strftime('%Y-%m-%d'),
-            b['atenciones'],
-            float(b['total_consulta'] or 0),
-            float(b['total_medicina'] or 0),
-        ])
+
+    if use_summaries:
+        for s in qs_sum.order_by('date'):
+            writer.writerow([s.date.strftime('%Y-%m-%d'), s.num_atenciones, float(s.total_consulta), float(s.total_medicina)])
+    else:
+        bydate = (
+            qs.values('fecha')
+            .annotate(
+                atenciones=Count('id'),
+                total_consulta=Sum('valor_consulta'),
+                total_medicina=Sum('valor_medicinas'),
+            )
+            .order_by('fecha')
+        )
+        for b in bydate:
+            writer.writerow([
+                b['fecha'].strftime('%Y-%m-%d'),
+                b['atenciones'],
+                float(b['total_consulta'] or 0),
+                float(b['total_medicina'] or 0),
+            ])
     return response
 
 
@@ -292,7 +305,20 @@ def dashboard_export_xlsx(request):
     if institucion:
         qs = qs.filter(institucion__iexact=institucion)
 
-    bydate = qs.values('fecha').annotate(atenciones=Count('id'), total_consulta=Sum('valor_consulta'), total_medicina=Sum('valor_medicinas')).order_by('fecha')
+    # Prefer summaries when available (parity with API)
+    from .models import DailyEqctacliSummary
+
+    use_summaries = False
+    if d_from and d_to:
+        qs_sum = DailyEqctacliSummary.objects.filter(date__range=(d_from, d_to))
+        if qs_sum.exists() and not medico and not institucion:
+            use_summaries = True
+
+    if use_summaries:
+        rows = [(s.date.strftime('%Y-%m-%d'), s.num_atenciones, float(s.total_consulta or 0), float(s.total_medicina or 0)) for s in qs_sum.order_by('date')]
+    else:
+        bydate = qs.values('fecha').annotate(atenciones=Count('id'), total_consulta=Sum('valor_consulta'), total_medicina=Sum('valor_medicinas')).order_by('fecha')
+        rows = [(b['fecha'].strftime('%Y-%m-%d'), b['atenciones'], float(b['total_consulta'] or 0), float(b['total_medicina'] or 0)) for b in bydate]
 
     # Build XLSX using openpyxl if available
     try:
@@ -306,8 +332,8 @@ def dashboard_export_xlsx(request):
 
     # header
     ws.append(['periodo', 'atenciones', 'total_consulta', 'total_medicina'])
-    for b in bydate:
-        ws.append([b['fecha'].strftime('%Y-%m-%d'), b['atenciones'], float(b['total_consulta'] or 0), float(b['total_medicina'] or 0)])
+    for row in rows:
+        ws.append(list(row))
 
     bio = io.BytesIO()
     wb.save(bio)

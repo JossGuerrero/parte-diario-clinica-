@@ -703,6 +703,8 @@ function init_skycons() {
 
 function init_chart_doughnut() {
 
+    if (window.ENABLE_DEMO !== true) { console.log('init_chart_doughnut skipped (DEMO disabled)'); return; }
+
     if (typeof (Chart) === 'undefined') { return; }
 
     console.log('init_chart_doughnut');
@@ -756,6 +758,8 @@ function init_chart_doughnut() {
 }
 
 function init_gauge() {
+
+    if (window.ENABLE_DEMO !== true) { console.log('init_gauge skipped (DEMO disabled)'); return; }
 
     if (typeof (Gauge) === 'undefined') { return; }
 
@@ -821,6 +825,8 @@ function init_gauge() {
 /* SPARKLINES */
 
 function init_sparklines() {
+
+    if (window.ENABLE_DEMO !== true) { console.log('init_sparklines skipped (DEMO disabled)'); return; }
 
     if (typeof (jQuery.fn.sparkline) === 'undefined') { return; }
     console.log('init_sparklines');
@@ -1986,6 +1992,9 @@ function init_charts() {
 
     if (typeof (Chart) === 'undefined') { return; }
 
+    // Do not run demo charts unless explicitly enabled
+    if (window.ENABLE_DEMO !== true) { console.log('init_charts skipped (DEMO disabled)'); return; }
+
     console.log('init_charts');
 
 
@@ -2749,6 +2758,8 @@ function init_morris_charts() {
 
 
 function init_echarts() {
+
+    if (window.ENABLE_DEMO !== true) { console.log('init_echarts skipped (DEMO disabled)'); return; }
 
     if (typeof (echarts) === 'undefined') { return; }
     console.log('init_echarts');
@@ -5025,7 +5036,11 @@ function init_echarts() {
 
 $(document).ready(function () {
 
-    init_sparklines();
+    // Default: demos disabled unless explicitly enabled by setting window.ENABLE_DEMO = true
+    window.ENABLE_DEMO = window.ENABLE_DEMO === true;
+    var DEMO = window.ENABLE_DEMO;
+
+    // Core initializers (non-demo)
     init_flot_chart();
     init_sidebar();
     init_wysiwyg();
@@ -5042,16 +5057,9 @@ $(document).ready(function () {
     init_daterangepicker_single_call();
     init_daterangepicker_reservation();
     init_SmartWizard();
-    init_EasyPieChart();
-    init_charts();
-    init_echarts();
-    init_morris_charts();
-    init_skycons();
     init_select2();
     init_validator();
     init_DataTables();
-    init_chart_doughnut();
-    init_gauge();
     init_PNotify();
     init_starrr();
     init_calendar();
@@ -5059,5 +5067,17 @@ $(document).ready(function () {
     init_CustomNotification();
     init_autosize();
     init_autocomplete();
+
+    // Demo-only visualizations: run only when explicitly enabled
+    if (DEMO) {
+        init_sparklines();
+        init_EasyPieChart();
+        init_charts();
+        init_echarts();
+        init_morris_charts();
+        init_skycons();
+        init_chart_doughnut();
+        init_gauge();
+    }
 
 });	

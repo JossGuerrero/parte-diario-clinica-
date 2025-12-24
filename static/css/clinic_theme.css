@@ -1,0 +1,4 @@
+/* Minimal clinic theme overrides used for local QA */
+.site_logo{ height:28px; vertical-align:middle }
+.site_title span{ font-weight:600 }
+.tile_count .count{ font-size:1.8em }

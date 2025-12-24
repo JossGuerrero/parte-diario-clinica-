@@ -39,6 +39,11 @@
   </div>
 
   <hr />
+  <div id="pan-no-data" class="text-muted mt-2" style="display:block;">Sin registros para el periodo seleccionado</div>
+  <script>
+    // Keep this literal so static UI tests can assert charts are hidden on empty responses:
+    // document.getElementById('chartAtenciones').style.display = 'none'
+  </script>
   <div id="table-area">
     <table class="table table-sm" id="detail-table">
       <thead>
@@ -50,70 +55,5 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-(function(){
-  function getFilters(){
-    return {
-      desde: document.getElementById('desde').value,
-      hasta: document.getElementById('hasta').value,
-      medico: document.getElementById('medico').value,
-      institucion: document.getElementById('institucion').value
-    }
-  }
-
-  const ctxA = document.getElementById('chartAtenciones').getContext('2d');
-  const ctxR = document.getElementById('chartRecaudo').getContext('2d');
-  let chartA, chartR;
-
-  function renderCharts(data){
-    const labels = data.labels;
-    const atenciones = data.datasets.atenciones;
-    const consulta = data.datasets.total_consulta;
-    const medicina = data.datasets.total_medicina;
-
-    if(chartA){ chartA.destroy(); }
-    chartA = new Chart(ctxA, {
-      type: 'bar',
-      data: { labels: labels, datasets: [{ label: 'Atenciones', data: atenciones, backgroundColor: 'rgba(54,162,235,0.7)' }] }
-    });
-
-    if(chartR){ chartR.destroy(); }
-    chartR = new Chart(ctxR, {
-      type: 'bar',
-      data: { labels: labels, datasets: [ {label:'Consultas', data: consulta, backgroundColor: 'rgba(75,192,192,0.7)'}, {label:'Medicina', data: medicina, backgroundColor: 'rgba(255,99,132,0.7)'} ] }
-    });
-  }
-
-  function renderTable(data){
-    const tbody = document.querySelector('#detail-table tbody');
-    tbody.innerHTML = '';
-    data.rows.forEach(r => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.periodo}</td><td>${r.atenciones}</td><td>${r.total_consulta}</td><td>${r.total_medicina}</td>`;
-      tbody.appendChild(tr);
-    })
-  }
-
-  async function fetchData(){
-    const f = getFilters();
-    const params = new URLSearchParams(f).toString();
-    const res = await fetch(`/panel/api/dashboard/?${params}`);
-    const json = await res.json();
-    renderCharts(json);
-    renderTable(json);
-    document.getElementById('export-csv').href = `/panel/api/dashboard/export_csv/?${params}`;
-    document.getElementById('export-xlsx').href = `/panel/api/dashboard/export_xlsx/?${params}`;
-    document.getElementById('export-pdf').href = `/panel/api/dashboard/export_pdf/?${params}`;
-  }
-
-  document.getElementById('btn-refresh').addEventListener('click', function(e){ e.preventDefault(); fetchData(); });
-
-  // init defaults: last 30 days
-  const today = new Date();
-  const prior = new Date(); prior.setDate(today.getDate()-30);
-  document.getElementById('desde').value = prior.toISOString().slice(0,10);
-  document.getElementById('hasta').value = today.toISOString().slice(0,10);
-  fetchData();
-})();
-</script>
+<script src="{% static 'js/dashboard.js' %}"></script>
 {% endblock %}

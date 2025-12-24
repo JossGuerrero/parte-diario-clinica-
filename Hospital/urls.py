@@ -35,6 +35,9 @@ urlpatterns = [
 
     # Mover el panel bajo /panel/ para evitar ambigüedades con la ruta raíz
     path("panel/", include(("panel.urls", "panel"), namespace="panel")),
+
+    # Endpoints del dashboard para gráficos (Access en tiempo real)
+    path("dashboard/", include(("dashboard.urls", "dashboard"), namespace="dashboard")),
 ]
 
 # Servir archivos media en DEBUG para desarrollo local

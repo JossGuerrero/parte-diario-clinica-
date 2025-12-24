@@ -139,6 +139,9 @@
                     <a class="dropdown-item" href="{% url 'panel:import_access' %}"><i class="fa fa-database pull-right"></i> Importar Access</a>
                     <a class="dropdown-item" href="{% url 'panel:report' %}"><i class="fa fa-file-text pull-right"></i> Documentación</a>
                   {% endif %}
+                  {% if user.is_staff %}
+                    <a class="dropdown-item" href="{% url 'dashboard:index' %}"><i class="fa fa-line-chart pull-right"></i> Dashboard Access</a>
+                  {% endif %}
                     <a class="dropdown-item"  href="{% url 'logout' %}"><i class="fa fa-sign-out pull-right"></i> Cerrar sesión</a>
                   </div>
                 </li>
@@ -236,6 +239,10 @@
     <script src="{% static '/FrWork/admin_lte/vendors/bootstrap-daterangepicker/daterangepicker.js' %}"></script>
 
     <!-- Custom Theme Scripts -->
+    <script>
+      // Ensure demo visualizations are disabled by default. Enable only with explicit flag.
+      window.ENABLE_DEMO = false;
+    </script>
     <script src="{% static '/FrWork/admin_lte/build/js/custom.min.js' %}"></script>
 	
   </body>

@@ -15,51 +15,11 @@ class Migration(migrations.Migration):
             name='accessquery',
             options={'verbose_name': 'Consulta Access', 'verbose_name_plural': 'Consultas Access'},
         ),
-        migrations.AddField(
-            model_name='panelatencion',
-            name='edad',
-            field=models.IntegerField(blank=True, null=True),
-        ),
-        migrations.AddField(
-            model_name='panelatencion',
-            name='especialidad',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='panel.panelespecialidad'),
-        ),
-        migrations.AddField(
-            model_name='panelatencion',
-            name='genero',
-            field=models.CharField(blank=True, max_length=10, null=True),
-        ),
-        migrations.AddField(
-            model_name='panelatencion',
-            name='institucion',
-            field=models.CharField(blank=True, max_length=120, null=True),
-        ),
-        migrations.AddField(
-            model_name='panelatencion',
-            name='raw',
-            field=models.JSONField(blank=True, help_text='Contenido crudo de la fila importada', null=True),
-        ),
-        migrations.AddField(
-            model_name='panelatencion',
-            name='servicio',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='panel.panelservicio'),
-        ),
-        migrations.AddField(
-            model_name='panelatencion',
-            name='solicitado_a',
-            field=models.CharField(blank=True, max_length=120, null=True),
-        ),
-        migrations.AddField(
-            model_name='panelatencion',
-            name='source_hash',
-            field=models.CharField(blank=True, db_index=True, help_text='Hash único de la fila origen para evitar duplicados', max_length=64, null=True),
-        ),
-        migrations.AddField(
-            model_name='panelatencion',
-            name='source_table',
-            field=models.CharField(blank=True, help_text='Tabla origen en Access', max_length=100, null=True),
-        ),
+
+        # NOTE: The `panel_atencion` table is created in 0006_create_panelatencion_table
+        # with many of the columns below; avoid adding them again here to prevent
+        # duplicate column errors when building test databases.
+
         migrations.AlterField(
             model_name='accessquery',
             name='id',
@@ -75,10 +35,9 @@ class Migration(migrations.Migration):
             name='valor_medicinas',
             field=models.DecimalField(decimal_places=2, default=0, max_digits=10),
         ),
-        migrations.AddConstraint(
-            model_name='panelatencion',
-            constraint=models.UniqueConstraint(condition=models.Q(models.Q(('source_table', None), _negated=True), models.Q(('source_hash', None), _negated=True)), fields=('source_table', 'source_hash'), name='uniq_source_row'),
-        ),
+        # Unique constraint on (source_table, source_hash) is created in 0006_create_panelatencion_table
+        # and does not need to be added again here.
+
         migrations.AlterModelTable(
             name='ordenatencion',
             table=None,
