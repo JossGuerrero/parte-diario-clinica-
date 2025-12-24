@@ -1,17 +1,37 @@
 from django.shortcuts import render, redirect
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 from django.http import JsonResponse, HttpResponse
+from django.contrib import messages
+from django.views.decorators.http import require_http_methods
+from django.db.models import Sum, Count
+
+import io
+import decimal
 
 import csv
 
-from .models import Paciente  # Importamos tu modelo de SQL Server
+from .models import (
+    Paciente,
+    PanelAtencion,
+    Cita,
+    PanelEspecialidad,
+    PanelServicio,
+    Estadocita,
+    DailyEqctacliSummary,
+)  # Importamos tu modelo de SQL Server and related models used by views
+
+# Backwards-compatible aliases used by older code
+Atencion = PanelAtencion
+Especialidad = PanelEspecialidad
+Servicio = PanelServicio
 
 def lista_pacientes(request):
     # Traemos todos los registros de la tabla 'paciente' de HHSCJEC_prueba
-    pacientes = Paciente.objects.all() 
-    
+    pacientes = Paciente.objects.all()
+
+
     # Enviamos los datos al archivo HTML (que crearemos en el siguiente paso)
     return render(request, 'panel/pacientes_list.html', {'pacientes': pacientes})
 
@@ -27,9 +47,7 @@ def index(request):
     fecha_desde = (today - timedelta(days=7)).strftime("%d/%m/%Y")
 
     # parse date range from GET or use last 7 days
-    from django.db.models import Sum, Count
     from datetime import datetime
-    from .models import PanelAtencion as Atencion, Cita, PanelEspecialidad as Especialidad, PanelServicio as Servicio, Estadocita
 
     def parse_date(s, default):
         try:
@@ -75,10 +93,9 @@ def index(request):
             if cancel_state:
                 cancelaciones = citas_qs.filter(idestadocita=cancel_state).count()
             else:
-                cancelaciones = citas_qs.filter(estado__in=[2,3]).count()
+                cancelaciones = citas_qs.filter(estado__in=[2, 3]).count()
         except Exception:
-            cancelaciones = citas_qs.filter(estado__in=[2,3]).count()
-
+                cancelaciones = citas_qs.filter(estado__in=[2, 3]).count()
     except (ProgrammingError, OperationalError) as e:
         # Database does not have the expected tables or is unreachable; fall back to safe defaults
         db_error = str(e)
@@ -148,9 +165,8 @@ def dashboard_api(request):
     medico = request.GET.get('medico')
     institucion = request.GET.get('institucion')
 
-    from .models import PanelAtencion, DailyEqctacliSummary  # noqa: E402
-    from django.db.models import Sum, Count
-    from datetime import datetime
+    # using top-level imports for models and db functions
+    # datetime is available from module-level imports
 
     # parse dates
     try:
@@ -208,9 +224,7 @@ def dashboard_export_csv(request):
     medico = request.GET.get('medico')
     institucion = request.GET.get('institucion')
 
-    from .models import PanelAtencion
-    from datetime import datetime
-    from django.db.models import Sum, Count
+    # PanelAtencion, datetime, Sum and Count are available from module-level imports
 
     try:
         d_from = datetime.strptime(desde, '%Y-%m-%d').date() if desde else None
@@ -417,7 +431,7 @@ def import_atenciones(request):
 
     import csv
     from io import TextIOWrapper
-    from .models import PanelEspecialidad as Especialidad, PanelServicio as Servicio, PanelAtencion as Atencion
+    # Using module-level model imports: Especialidad, Servicio, Atencion
     from django.contrib import messages
 
     if request.method == 'POST' and request.FILES.get('csvfile'):
@@ -473,9 +487,10 @@ def superuser_required(view_func):
 
 @superuser_required
 def import_access(request):
-    """Two-step flow with support for persistent file and session-saved password:
-    - POST action='inspect': either inspect uploaded file or inspect previously saved file; option to persist file on server and to remember password in session.
-    - POST action='import': import rows from selected table into PanelAtencion. If using persistent file, it will not be deleted; temporary uploads will be cleaned after import.
+    """Two-step flow for importing Access files.
+
+    - POST action='inspect': inspect the uploaded file or a persisted file and optionally remember a session password.
+    - POST action='import': import rows from a selected table into PanelAtencion. Temporary uploads are cleaned after import.
     """
     try:
         import pyodbc
@@ -485,8 +500,7 @@ def import_access(request):
     from .models import PanelAtencion, PanelEspecialidad, PanelServicio
     from django.db import transaction
     from django.contrib import messages
-    from datetime import datetime, date
-    import decimal
+    from datetime import date
     import time
     from django.conf import settings
     from django.core import signing
@@ -560,7 +574,16 @@ def import_access(request):
                     if not tables:
                         messages.error(request, 'No se encontraron las tablas requeridas: Eqtrasec, Ctacli, Eqctavdd en el archivo Access persistente.')
                         return redirect('panel:import_access')
-                    return render(request, 'panel/import_access.html', {'tables': tables, 'connected': True, 'file_name': request.session.get('access_file_original_name', 'archivo_access.accdb'), 'persisted': True})
+                    return render(
+                        request,
+                        'panel/import_access.html',
+                        {
+                            'tables': tables,
+                            'connected': True,
+                            'file_name': request.session.get('access_file_original_name', 'archivo_access.accdb'),
+                            'persisted': True,
+                        },
+                    )
                 except Exception as e:
                     messages.error(request, f'No se pudo conectar al archivo Access persistente: {e}')
                     return redirect('panel:import_access')
@@ -718,7 +741,7 @@ def import_access(request):
                                 break
                         esp_name = None
                         serv_name = None
-                        for key in ('especialidad','especiality','especialidad_nombre','especialidadName'):
+                        for key in ('especialidad', 'especiality', 'especialidad_nombre', 'especialidadName'):
                             if key in row and row[key]:
                                 esp_name = str(row[key]).strip()
                                 break
@@ -732,6 +755,7 @@ def import_access(request):
                             serv_name = 'Consulta'
                         esp, _ = PanelEspecialidad.objects.get_or_create(nombre=esp_name)
                         serv, _ = PanelServicio.objects.get_or_create(nombre=serv_name)
+
                         def to_decimal(k):
                             for cand in (k, k.lower(), k.upper()):
                                 if cand in row and row[cand] is not None:
@@ -806,10 +830,7 @@ def run_import_access(request):
 
 
 # Simple logout view that accepts GET and POST and redirects to login
-from django.views.decorators.http import require_http_methods
 from django.contrib.auth import logout as auth_logout
-from django.http import FileResponse, Http404
-from django.contrib import messages
 
 @require_http_methods(["GET", "POST"])
 def logout_view(request):
@@ -846,7 +867,6 @@ def report_view(request):
     # show as preformatted text (simple and reliable)
     return render(request, 'panel/report.html', {'content': content})
 
-from django.contrib import messages
 
 def home_redirect(request):
     """Redirect root URL:
