@@ -1,0 +1,119 @@
+{% extends 'index_master.html' %}
+
+{% block content %}
+<div class="right_col" role="main">
+  <h2>Dashboard — Parte Diario</h2>
+
+  <div class="card mb-3 p-3">
+    <form id="filters-form" class="form-inline">
+      <label class="mr-2">Desde</label>
+      <input type="date" id="desde" class="form-control mr-2" />
+      <label class="mr-2">Hasta</label>
+      <input type="date" id="hasta" class="form-control mr-2" />
+
+      <label class="mr-2">Médico</label>
+      <input type="text" id="medico" class="form-control mr-2" placeholder="Nombre médico" />
+
+      <label class="mr-2">Institución</label>
+      <select id="institucion" class="form-control mr-2">
+        <option value="">Todas</option>
+        <option>IESS</option>
+        <option>ISSFA</option>
+        <option>ISSPOL</option>
+      </select>
+
+      <button id="btn-refresh" class="btn btn-primary">Actualizar</button>
+      <a id="export-csv" class="btn btn-outline-secondary ml-2" href="#">Exportar CSV</a>
+      <a id="export-xlsx" class="btn btn-outline-secondary ml-2" href="#">Exportar Excel</a>
+      <a id="export-pdf" class="btn btn-outline-secondary ml-2" href="#">Exportar PDF</a>
+    </form>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6">
+      <canvas id="chartAtenciones"></canvas>
+    </div>
+    <div class="col-md-6">
+      <canvas id="chartRecaudo"></canvas>
+    </div>
+  </div>
+
+  <hr />
+  <div id="table-area">
+    <table class="table table-sm" id="detail-table">
+      <thead>
+        <tr><th>Periodo</th><th>Atenciones</th><th>Total Consulta</th><th>Total Medicina</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function(){
+  function getFilters(){
+    return {
+      desde: document.getElementById('desde').value,
+      hasta: document.getElementById('hasta').value,
+      medico: document.getElementById('medico').value,
+      institucion: document.getElementById('institucion').value
+    }
+  }
+
+  const ctxA = document.getElementById('chartAtenciones').getContext('2d');
+  const ctxR = document.getElementById('chartRecaudo').getContext('2d');
+  let chartA, chartR;
+
+  function renderCharts(data){
+    const labels = data.labels;
+    const atenciones = data.datasets.atenciones;
+    const consulta = data.datasets.total_consulta;
+    const medicina = data.datasets.total_medicina;
+
+    if(chartA){ chartA.destroy(); }
+    chartA = new Chart(ctxA, {
+      type: 'bar',
+      data: { labels: labels, datasets: [{ label: 'Atenciones', data: atenciones, backgroundColor: 'rgba(54,162,235,0.7)' }] }
+    });
+
+    if(chartR){ chartR.destroy(); }
+    chartR = new Chart(ctxR, {
+      type: 'bar',
+      data: { labels: labels, datasets: [ {label:'Consultas', data: consulta, backgroundColor: 'rgba(75,192,192,0.7)'}, {label:'Medicina', data: medicina, backgroundColor: 'rgba(255,99,132,0.7)'} ] }
+    });
+  }
+
+  function renderTable(data){
+    const tbody = document.querySelector('#detail-table tbody');
+    tbody.innerHTML = '';
+    data.rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.periodo}</td><td>${r.atenciones}</td><td>${r.total_consulta}</td><td>${r.total_medicina}</td>`;
+      tbody.appendChild(tr);
+    })
+  }
+
+  async function fetchData(){
+    const f = getFilters();
+    const params = new URLSearchParams(f).toString();
+    const res = await fetch(`/panel/api/dashboard/?${params}`);
+    const json = await res.json();
+    renderCharts(json);
+    renderTable(json);
+    document.getElementById('export-csv').href = `/panel/api/dashboard/export_csv/?${params}`;
+    document.getElementById('export-xlsx').href = `/panel/api/dashboard/export_xlsx/?${params}`;
+    document.getElementById('export-pdf').href = `/panel/api/dashboard/export_pdf/?${params}`;
+  }
+
+  document.getElementById('btn-refresh').addEventListener('click', function(e){ e.preventDefault(); fetchData(); });
+
+  // init defaults: last 30 days
+  const today = new Date();
+  const prior = new Date(); prior.setDate(today.getDate()-30);
+  document.getElementById('desde').value = prior.toISOString().slice(0,10);
+  document.getElementById('hasta').value = today.toISOString().slice(0,10);
+  fetchData();
+})();
+</script>
+{% endblock %}

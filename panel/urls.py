@@ -29,4 +29,11 @@ urlpatterns = [
     path('import/access/run/', views.run_import_access, name='run_import_access'),
     # Documentación del proyecto (reporte de pasantías)
     path('docs/report/', views.report_view, name='report'),
+
+    # Dashboard y API para agregados
+    path('dashboard/', views.dashboard, name='dashboard'),
+    path('api/dashboard/', views.dashboard_api, name='dashboard_api'),
+    path('api/dashboard/export_csv/', views.dashboard_export_csv, name='dashboard_export_csv'),
+    path('api/dashboard/export_xlsx/', views.dashboard_export_xlsx, name='dashboard_export_xlsx'),
+    path('api/dashboard/export_pdf/', views.dashboard_export_pdf, name='dashboard_export_pdf'),
 ]

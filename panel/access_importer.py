@@ -51,6 +51,7 @@ def import_from_access(file_path, pwd=None, tables=None):
     cn = try_connect(file_path, pwd)
     cur = cn.cursor()
 
+    processed_dates = set()
     for table in tables:
         try:
             cur.execute(f"SELECT * FROM [{table}]")
@@ -99,7 +100,7 @@ def import_from_access(file_path, pwd=None, tables=None):
                                     except Exception:
                                         return decimal.Decimal('0')
                     return decimal.Decimal('0')
-                valor_consulta = to_decimal_from_row(['VALOR_CONSULTA','valor','valorconsulta','VALOR'])
+                valor_consulta = to_decimal_from_row(['VALOR_CONSULTA','TOT_Servicios','TOT_Servicios'.upper(),'valor','valorconsulta','VALOR'])
                 valor_medicinas = to_decimal_from_row(['TOT_Medicina','valor_medicina','valor_medicinas','TOT_Medicina','total_medicina'])
                 esp_name = None
                 serv_name = None
@@ -168,7 +169,20 @@ def import_from_access(file_path, pwd=None, tables=None):
                 )
                 pa.save()
                 imported += 1
+                if fecha:
+                    processed_dates.add(fecha)
         summary['details'][table] = imported
         summary['imported'] += imported
+    # update daily summaries for the dates we processed
+    try:
+        if processed_dates:
+            from .management.commands.update_eqctacli_summary import Command as UpdateCmd
+            # reuse the command logic: call handle with date per processed date
+            updater = UpdateCmd()
+            for d in processed_dates:
+                updater.handle(*(), **{"date": d.strftime('%Y-%m-%d')})
+    except Exception:
+        # don't fail the import if summary update fails
+        pass
     cn.close()
     return summary
