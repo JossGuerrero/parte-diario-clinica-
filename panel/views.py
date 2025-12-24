@@ -2,8 +2,10 @@ from django.shortcuts import render, redirect
 from datetime import date, timedelta
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
+from django.http import JsonResponse, HttpResponse
 
-from django.shortcuts import render
+import csv
+
 from .models import Paciente  # Importamos tu modelo de SQL Server
 
 def lista_pacientes(request):
@@ -128,6 +130,248 @@ def index(request):
         "db_error": db_error,
     }
     return render(request, "index.html", context)
+
+
+@login_required(login_url='login')
+def dashboard(request):
+    # simple page shell, heavy lifting in API view
+    if not request.user.is_superuser:
+        return redirect('login')
+    return render(request, 'panel/dashboard.html')
+
+
+@login_required(login_url='login')
+def dashboard_api(request):
+    """Returns aggregated data per day as JSON for charting and table."""
+    desde = request.GET.get('desde')
+    hasta = request.GET.get('hasta')
+    medico = request.GET.get('medico')
+    institucion = request.GET.get('institucion')
+
+    from .models import PanelAtencion, DailyEqctacliSummary  # noqa: E402
+    from django.db.models import Sum, Count
+    from datetime import datetime
+
+    # parse dates
+    try:
+        d_from = datetime.strptime(desde, '%Y-%m-%d').date() if desde else None
+        d_to = datetime.strptime(hasta, '%Y-%m-%d').date() if hasta else None
+    except Exception:
+        return JsonResponse({'error': 'Fecha inválida'}, status=400)
+
+    # if a full-day range and Daily summaries exist, use them for speed
+    use_summaries = False
+    if d_from and d_to:
+        qs_sum = DailyEqctacliSummary.objects.filter(date__range=(d_from, d_to))
+        if qs_sum.exists() and not medico and not institucion:
+            use_summaries = True
+
+    labels = []
+    datasets = {'atenciones': [], 'total_consulta': [], 'total_medicina': []}
+    rows = []
+
+    if use_summaries:
+        sums = qs_sum.order_by('date')
+        for s in sums:
+            labels.append(s.date.strftime('%Y-%m-%d'))
+            datasets['atenciones'].append(s.num_atenciones)
+            datasets['total_consulta'].append(float(s.total_consulta))
+            datasets['total_medicina'].append(float(s.total_medicina))
+            rows.append({'periodo': s.date.strftime('%Y-%m-%d'), 'atenciones': s.num_atenciones, 'total_consulta': float(s.total_consulta), 'total_medicina': float(s.total_medicina)})
+        return JsonResponse({'labels': labels, 'datasets': datasets, 'rows': rows})
+
+    # fallback: compute from PanelAtencion applying filters
+    qs = PanelAtencion.objects.all()
+    if d_from and d_to:
+        qs = qs.filter(fecha__range=(d_from, d_to))
+    if medico:
+        qs = qs.filter(solicitado_a__icontains=medico)
+    if institucion:
+        qs = qs.filter(institucion__iexact=institucion)
+
+    # group by fecha (day)
+    bydate = qs.values('fecha').annotate(atenciones=Count('id'), total_consulta=Sum('valor_consulta'), total_medicina=Sum('valor_medicinas')).order_by('fecha')
+    for b in bydate:
+        labels.append(b['fecha'].strftime('%Y-%m-%d'))
+        datasets['atenciones'].append(b['atenciones'])
+        datasets['total_consulta'].append(float(b['total_consulta'] or 0))
+        datasets['total_medicina'].append(float(b['total_medicina'] or 0))
+        rows.append({'periodo': b['fecha'].strftime('%Y-%m-%d'), 'atenciones': b['atenciones'], 'total_consulta': float(b['total_consulta'] or 0), 'total_medicina': float(b['total_medicina'] or 0)})
+
+    return JsonResponse({'labels': labels, 'datasets': datasets, 'rows': rows})
+
+
+@login_required(login_url='login')
+def dashboard_export_csv(request):
+    desde = request.GET.get('desde')
+    hasta = request.GET.get('hasta')
+    medico = request.GET.get('medico')
+    institucion = request.GET.get('institucion')
+
+    from .models import PanelAtencion
+    from datetime import datetime
+    from django.db.models import Sum, Count
+
+    try:
+        d_from = datetime.strptime(desde, '%Y-%m-%d').date() if desde else None
+        d_to = datetime.strptime(hasta, '%Y-%m-%d').date() if hasta else None
+    except Exception:
+        return HttpResponse('Fecha inválida', status=400)
+
+    qs = PanelAtencion.objects.all()
+    if d_from and d_to:
+        qs = qs.filter(fecha__range=(d_from, d_to))
+    if medico:
+        qs = qs.filter(solicitado_a__icontains=medico)
+    if institucion:
+        qs = qs.filter(institucion__iexact=institucion)
+
+    bydate = (
+        qs.values('fecha')
+        .annotate(
+            atenciones=Count('id'),
+            total_consulta=Sum('valor_consulta'),
+            total_medicina=Sum('valor_medicinas'),
+        )
+        .order_by('fecha')
+    )
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="dashboard_export.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['periodo', 'atenciones', 'total_consulta', 'total_medicina'])
+    for b in bydate:
+        writer.writerow([
+            b['fecha'].strftime('%Y-%m-%d'),
+            b['atenciones'],
+            float(b['total_consulta'] or 0),
+            float(b['total_medicina'] or 0),
+        ])
+    return response
+
+
+@login_required(login_url='login')
+def dashboard_export_xlsx(request):
+    """Export aggregated dashboard rows to an Excel (.xlsx) file."""
+    desde = request.GET.get('desde')
+    hasta = request.GET.get('hasta')
+    medico = request.GET.get('medico')
+    institucion = request.GET.get('institucion')
+
+    from .models import PanelAtencion
+    from datetime import datetime
+    from django.db.models import Sum, Count
+    import io
+
+    try:
+        d_from = datetime.strptime(desde, '%Y-%m-%d').date() if desde else None
+        d_to = datetime.strptime(hasta, '%Y-%m-%d').date() if hasta else None
+    except Exception:
+        return HttpResponse('Fecha inválida', status=400)
+
+    qs = PanelAtencion.objects.all()
+    if d_from and d_to:
+        qs = qs.filter(fecha__range=(d_from, d_to))
+    if medico:
+        qs = qs.filter(solicitado_a__icontains=medico)
+    if institucion:
+        qs = qs.filter(institucion__iexact=institucion)
+
+    bydate = qs.values('fecha').annotate(atenciones=Count('id'), total_consulta=Sum('valor_consulta'), total_medicina=Sum('valor_medicinas')).order_by('fecha')
+
+    # Build XLSX using openpyxl if available
+    try:
+        from openpyxl import Workbook
+    except Exception:
+        return HttpResponse('openpyxl library not installed', status=500)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Dashboard'
+
+    # header
+    ws.append(['periodo', 'atenciones', 'total_consulta', 'total_medicina'])
+    for b in bydate:
+        ws.append([b['fecha'].strftime('%Y-%m-%d'), b['atenciones'], float(b['total_consulta'] or 0), float(b['total_medicina'] or 0)])
+
+    bio = io.BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+
+    response = HttpResponse(bio.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="dashboard_export.xlsx"'
+    return response
+
+
+@login_required(login_url='login')
+def dashboard_export_pdf(request):
+    """Export aggregated dashboard rows to a simple PDF (ReportLab)."""
+    desde = request.GET.get('desde')
+    hasta = request.GET.get('hasta')
+    medico = request.GET.get('medico')
+    institucion = request.GET.get('institucion')
+
+    from .models import PanelAtencion
+    from datetime import datetime
+    from django.db.models import Sum, Count
+    import io
+
+    try:
+        d_from = datetime.strptime(desde, '%Y-%m-%d').date() if desde else None
+        d_to = datetime.strptime(hasta, '%Y-%m-%d').date() if hasta else None
+    except Exception:
+        return HttpResponse('Fecha inválida', status=400)
+
+    qs = PanelAtencion.objects.all()
+    if d_from and d_to:
+        qs = qs.filter(fecha__range=(d_from, d_to))
+    if medico:
+        qs = qs.filter(solicitado_a__icontains=medico)
+    if institucion:
+        qs = qs.filter(institucion__iexact=institucion)
+
+    bydate = qs.values('fecha').annotate(atenciones=Count('id'), total_consulta=Sum('valor_consulta'), total_medicina=Sum('valor_medicinas')).order_by('fecha')
+
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+    except Exception:
+        return HttpResponse('reportlab library not installed', status=500)
+
+    bio = io.BytesIO()
+    p = canvas.Canvas(bio, pagesize=letter)
+    width, height = letter
+
+    y = height - 40
+    p.setFont('Helvetica-Bold', 12)
+    p.drawString(40, y, 'Dashboard - Parte Diario')
+    y -= 30
+
+    p.setFont('Helvetica-Bold', 10)
+    p.drawString(40, y, 'Periodo')
+    p.drawString(150, y, 'Atenciones')
+    p.drawString(260, y, 'Total Consulta')
+    p.drawString(380, y, 'Total Medicina')
+    y -= 15
+    p.setFont('Helvetica', 10)
+
+    for b in bydate:
+        if y < 80:
+            p.showPage()
+            y = height - 40
+        p.drawString(40, y, b['fecha'].strftime('%Y-%m-%d'))
+        p.drawString(150, y, str(b['atenciones']))
+        p.drawString(260, y, f"{float(b['total_consulta'] or 0):.2f}")
+        p.drawString(380, y, f"{float(b['total_medicina'] or 0):.2f}")
+        y -= 15
+
+    p.save()
+    bio.seek(0)
+
+    response = HttpResponse(bio.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="dashboard_export.pdf"'
+    return response
 
 
 # ---- User management views (CRUD) ----
@@ -539,6 +783,7 @@ def run_import_access(request):
     """Manual trigger (superuser) to run the persistent import using environment password or provided password via POST."""
     from .access_importer import import_from_access
     import os
+    from django.conf import settings
     if request.method == 'POST':
         pwd = request.POST.get('access_password') or os.environ.get('ACCESS_PERSISTENT_PWD') or getattr(settings, 'ACCESS_PERSISTENT_PWD', '')
         media_access = os.path.join(settings.MEDIA_ROOT, 'access')
