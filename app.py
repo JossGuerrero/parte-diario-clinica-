@@ -44,26 +44,45 @@ DB_USER = os.getenv("PG_USER", "postgres")
 DB_PASS = os.getenv("PG_PWD", "jossue205")
 DB_HOST = os.getenv("PG_HOST", "localhost")
 DB_PORT = os.getenv("PG_PORT", "5432")
-DB_NAME = os.getenv("PG_DB", "parte_diario")
-engine = create_engine(f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
+DB_NAME = os.getenv("PG_DB", "partes_diario")
+engine = create_engine(
+    f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}",
+    connect_args={"client_encoding": "UTF8"}
+)
 
 # --- FUNCIONES DE CONSULTA ---
+
+# --- CONSULTA DESDE LA VISTA ---
+
 @st.cache_data(show_spinner=False)
 def get_medicos():
     try:
-        query = "SELECT DISTINCT medico FROM atencion ORDER BY medico"
+        query = "SELECT DISTINCT medico FROM vw_parte_diario ORDER BY medico"
         df = pd.read_sql(query, engine)
+        # Limpiar caracteres problemáticos manualmente
+        # Forzar decodificación desde bytes latin1 a str, reemplazando caracteres inválidos
+        def clean_str(val):
+            if isinstance(val, bytes):
+                try:
+                    return val.decode('latin1', errors='replace')
+                except Exception:
+                    return str(val)
+            try:
+                return str(val).encode('latin1', errors='replace').decode('latin1', errors='replace')
+            except Exception:
+                return str(val)
+        df['medico'] = df['medico'].apply(clean_str)
         return df['medico'].dropna().tolist()
     except Exception as e:
         st.error(f"Error al obtener médicos: {e}")
         return []
 
+
 @st.cache_data(show_spinner=False)
 def get_data(start_date, end_date, medico=None):
     try:
         query = """
-            SELECT fecha_atencion, especialidad, medico, valor_consulta, valor_medicina
-            FROM atencion
+            SELECT * FROM vw_parte_diario
             WHERE fecha_atencion BETWEEN :start AND :end
         """
         params = {"start": start_date, "end": end_date}
@@ -71,10 +90,14 @@ def get_data(start_date, end_date, medico=None):
             query += " AND medico = :med"
             params["med"] = medico
         df = pd.read_sql(text(query), engine, params=params)
+        # Limpiar caracteres problemáticos en todas las columnas tipo string
+        for col in df.columns:
+            df[col] = df[col].apply(lambda x: clean_str(x))
         return df
     except Exception as e:
         st.error(f"Error al obtener datos: {e}")
         return pd.DataFrame()
+
 
 # --- SIDEBAR FILTROS ---
 st.sidebar.title("Filtros")
@@ -84,6 +107,21 @@ end_date = st.sidebar.date_input("Fecha fin", value=today)
 medicos = ["Todos"] + get_medicos()
 medico = st.sidebar.selectbox("Médico", medicos)
 
+# Filtros adicionales (se definen después de obtener el dataframe)
+edad_rango = None
+genero = None
+especialidad = None
+
+df = get_data(start_date, end_date, medico)
+
+# --- BOTÓN RECARGAR DATOS ---
+if 'reload' not in st.session_state:
+    st.session_state.reload = False
+
+if st.sidebar.button('🔄 Recargar datos'):
+    st.cache_data.clear()
+    st.session_state.reload = not st.session_state.reload
+
 # --- CONSULTA PRINCIPAL ---
 if start_date > end_date:
     st.error("La fecha de inicio no puede ser mayor que la fecha de fin.")
@@ -91,184 +129,63 @@ if start_date > end_date:
 
 df = get_data(start_date, end_date, medico)
 
+
+# Definir opciones de filtros adicionales si hay datos
+# (La vista ya entrega datos agregados, solo filtrar por médico y fecha)
+
 # --- UI PRINCIPAL ---
 st.title("Dashboard Clínico - Parte Diario")
+
 
 if df.empty:
     st.info("No hay datos para los filtros seleccionados.")
 else:
-    # Renombrar columnas para consistencia
-    df = df.rename(columns={
-        'fecha_atencion': 'fecha',
-        'valor_consulta': 'valor_consulta',
-        'valor_medicina': 'valor_medicina',
-        'medico': 'medico_id'
-    })
-
-    # Asegura tipos correctos para columnas numéricas
-    for col in ['valor_consulta', 'valor_medicina']:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-
-    # --- NUEVO: Calcular rango de edad ---
-    def clasificar_edad(edad):
-        if pd.isnull(edad):
-            return "Sin dato"
-        edad = int(edad)
-        if 10 <= edad <= 14:
-            return "10a14"
-        elif 15 <= edad <= 19:
-            return "15a19"
-        elif 20 <= edad <= 49:
-            return "20a49"
-        elif 50 <= edad <= 64:
-            return "50a64"
-        elif edad >= 65:
-            return "Mayor 65"
-        else:
-            return "Sin dato"
-    if 'edad' in df.columns:
-        df['rango_edad'] = df['edad'].apply(clasificar_edad)
-    else:
-        df['rango_edad'] = "Sin dato"
-
-    # --- APLICAR FILTROS ---
-    if not df.empty:
-        # Filtro por institución
-        if 'institucion' in df.columns and institucion != "Todas":
-            df = df[df['institucion'] == institucion]
-
-        # Filtro por género
-        if 'genero' in df.columns and genero != "Todos":
-            df = df[df['genero'] == genero]
-
-        # Filtro por médico
-        if 'medico_id' in df.columns and medico != "Todos":
-            df = df[df['medico_id'] == medico]
-
-        # Filtro por rango de edad
-        if 'rango_edad' in df.columns and edad_rango != "Todos":
-            df = df[df['rango_edad'] == edad_rango]
-
-    # --- MÉTRICAS PRINCIPALES ---
+    # --- MÉTRICAS PARTE DIARIO ---
+    st.subheader("Parte Diario Clínico - Métricas Principales")
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total Atenciones", len(df))
-    col2.metric("Recaudado Consultas", f"${df['valor_consulta'].sum():,.2f}")
-    col3.metric("Recaudado Medicinas", f"${df['valor_medicina'].sum():,.2f}")
+    col1.metric("Número de Atenciones", int(df['total_atenciones'].sum()))
+    col2.metric("Valor recaudado por Consultas", f"${df['total_consultas'].sum():,.2f}")
+    col3.metric("Valor recaudado por Medicinas", f"${df['total_medicina'].sum():,.2f}")
 
-    # --- Estadísticas avanzadas ---
-    with st.expander("Estadísticas avanzadas"):
-        st.write(f"Filas únicas por especialidad: {df['especialidad'].nunique() if 'especialidad' in df.columns else 'N/A'}")
-        if 'valor_consulta' in df.columns:
-            st.write(f"Valor consulta - min: {df['valor_consulta'].min()}, max: {df['valor_consulta'].max()}, promedio: {df['valor_consulta'].mean():.2f}")
-        if 'valor_medicina' in df.columns:
-            st.write(f"Valor medicina - min: {df['valor_medicina'].min()}, max: {df['valor_medicina'].max()}, promedio: {df['valor_medicina'].mean():.2f}")
-        if 'edad' in df.columns:
-            st.write(f"Edades - min: {df['edad'].min()}, max: {df['edad'].max()}, promedio: {df['edad'].mean():.2f}")
-        if 'genero' in df.columns:
-            st.write("Distribución por género:")
-            st.dataframe(df['genero'].value_counts(dropna=False))
-        if 'institucion' in df.columns:
-            st.write("Top 5 instituciones:")
-            st.dataframe(df['institucion'].value_counts(dropna=False).head(5))
-
-    # --- LAYOUT DE GRÁFICOS ---
-    graf1, graf2 = st.columns(2)
-
-    # Gráfico de barras apiladas: Especialidad por género
-    if 'especialidad' in df.columns and 'genero' in df.columns:
-        espec_genero = df.groupby(['especialidad', 'genero']).size().reset_index(name='atenciones')
-        fig_espec = px.bar(
-            espec_genero,
-            x="especialidad",
-            y="atenciones",
-            color="genero",
-            barmode="stack",
-            title="Atenciones por Especialidad y Género"
-        )
-        graf1.plotly_chart(fig_espec, use_container_width=True)
-
-    # Pie chart: Distribución por rango de edad
-    if 'rango_edad' in df.columns:
-        edad_counts = df['rango_edad'].value_counts().reset_index()
-        edad_counts.columns = ['rango_edad', 'atenciones']
-        fig_edad = px.pie(
-            edad_counts,
-            names='rango_edad',
-            values='atenciones',
-            title="Distribución por Rango de Edad"
-        )
-        graf2.plotly_chart(fig_edad, use_container_width=True)
-
-    # Segunda fila de gráficos
-    graf3, graf4 = st.columns(2)
-
-    # Pie chart: Distribución por género
-    if 'genero' in df.columns:
-        genero_counts = df['genero'].value_counts().reset_index()
-        genero_counts.columns = ['genero', 'atenciones']
-        fig_genero = px.pie(
-            genero_counts,
-            names='genero',
-            values='atenciones',
-            title="Distribución por Género"
-        )
-        graf3.plotly_chart(fig_genero, use_container_width=True)
-
-    # Pie chart: Distribución por institución
-    if 'institucion' in df.columns:
-        inst_counts = df['institucion'].value_counts().head(8).reset_index()
-        inst_counts.columns = ['institucion', 'atenciones']
-        fig_inst = px.pie(
-            inst_counts,
-            names='institucion',
-            values='atenciones',
-            title="Top 8 Instituciones"
-        )
-        graf4.plotly_chart(fig_inst, use_container_width=True)
-
-    # Pie chart: Top 8 especialidades
-    if 'especialidad' in df.columns:
-        espec_counts = df['especialidad'].value_counts().head(8).reset_index()
-        espec_counts.columns = ['especialidad', 'atenciones']
-        fig_espec_pie = px.pie(
-            espec_counts,
-            names='especialidad',
-            values='atenciones',
-            title="Top 8 Especialidades"
-        )
-        st.plotly_chart(fig_espec_pie, use_container_width=True)
-
-    # Gráfico de líneas: Atenciones por día
-    if 'fecha' in df.columns:
-        df['fecha'] = pd.to_datetime(df['fecha'])
-        atenciones_dia = df.groupby(df['fecha'].dt.date).size().reset_index(name='atenciones')
-        fig_linea = px.line(
-            atenciones_dia,
-            x='fecha',
-            y='atenciones',
-            markers=True,
-            title="Atenciones por Día"
-        )
-        st.plotly_chart(fig_linea, use_container_width=True)
-
-    # --- Top 5 especialidades y médicos ---
-    st.subheader("Top 5 Especialidades")
-    st.bar_chart(df['especialidad'].value_counts().head(5))
-
-    st.subheader("Top 5 Médicos (ID)")
-    st.bar_chart(df['medico_id'].value_counts().head(5))
-
-    # --- Tabla resumida por día ---
-    resumen = df.groupby(df['fecha'].dt.date).agg({
-        'valor_consulta': 'sum',
-        'valor_medicina': 'sum',
-        'especialidad': 'count'
-    }).rename(columns={'especialidad': 'atenciones'})
-    st.subheader("Resumen Diario")
-    st.dataframe(resumen)
-
-    # --- Descarga CSV ---
+    # --- Descarga CSV y Excel ---
     csv = df.to_csv(index=False).encode('utf-8')
     st.download_button("Descargar CSV", csv, "parte_diario.csv", "text/csv")
+
+    import io
+    excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='ParteDiario')
+    excel_buffer.seek(0)
+    st.download_button(
+        label="Descargar Excel",
+        data=excel_buffer,
+        file_name="parte_diario.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    # --- Modo avanzado (dashboard completo) reservado para futura mejora ---
+    # st.markdown(":gear: Modo avanzado próximamente disponible.")
+
+# --- PANEL ACERCA DE ---
+with st.expander("ℹ️ Acerca de este sistema"):
+        st.markdown("""
+        **Automatización del Parte Diario Clínico**
+    
+        Esta aplicación permite visualizar, analizar y descargar el parte diario médico de manera automática, eliminando procesos manuales y mejorando la toma de decisiones.
+    
+        - Fuente de datos: Access (legacy) → PostgreSQL
+        - Visualización: Streamlit + Plotly
+        - ETL y lógica: Python + Pandas
+
+        Desarrollado por tu equipo. Para soporte o sugerencias, contacta a: [tu-xdearly12@gmail.com](mailto:tu-xdearly12@gmail.com)
+        """)
+
+# --- FOOTER ---
+st.markdown("""
+<hr style='margin-top:40px;margin-bottom:10px;border:1px solid #eee;'>
+<div style='text-align:center; color:gray; font-size:0.95em;'>
+    🏥 Automatización Parte Diario Clínico &nbsp;|&nbsp; Desarrollado por tu equipo &copy; 2025<br>
+    <span style='font-size:0.9em;'>¿Prefieres modo oscuro o claro? Cambia el tema en el menú de Streamlit (☰ &rarr; Settings &rarr; Theme).</span>
+</div>
+""", unsafe_allow_html=True)
 
